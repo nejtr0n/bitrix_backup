@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# DB settings
+DB_DIR="/your/path/here"
+DB="${DB_DIR}backup.db"
+
+# Backup dir
+BDIR="/backup"
+
+# Exclude bx kernel
+excludes=(--exclude=bitrix)
+excludes+=(--exclude=upload)
+excludes+=(--exclude=images)
+
+backup() {
+	#
+	echo "Начинаю бекап в `date +"%d-%m-%Y_%T"`"
+	i=1
+	sqlite3 ${DB} "select has_kernel, name, path, id from backup;" | while read line; do
+		OIFS=$IFS
+		IFS='|'
+		arr=($line)
+		# Backup command
+		if [ -d ${arr[2]} ] ; then
+			cd ${arr[2]}
+			fname="${BDIR}/${arr[1]}_`date +"%d-%m-%Y_%T"`.tar.gz"
+		  	if [ ${arr[0]} = "1" ] ; then
+		        	tar="tar cfz $fname . ${excludes[@]}"
+			else
+                		tar="tar cfz $fname ." 
+		        fi
+			eval ${tar}
+			ret_code=$?
+			if [ $ret_code ] ; then
+				chmod 440 $fname
+				#chattr +i $fname 
+				sqlite3 ${DB} "update backup set date=datetime(CURRENT_TIMESTAMP, 'localtime') where id='${arr[3]}';" 
+				printf "\t ${i}. Бекап сайта ${arr[1]} закончен.\n"
+			fi
+		fi
+		IFS=$OIFS
+		((i++))
+	done;
+	echo "Заканчиваю бекап в `date +"%d-%m-%Y_%T"`"
+	echo ''
+}
+backup
