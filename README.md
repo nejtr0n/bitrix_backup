@@ -5,3 +5,10 @@ Bitrix website backup script
 
 # Установка 
 
+git clone https://github.com/nejtr0n/bitrix_backup.git
+
+Прописать пути.
+Скрипт cron_backup на крон
+
+Видео по сутановке:
+
