@@ -1,0 +1,90 @@
+#!/bin/bash
+BPATH="/your/path/here/"
+DB="${BPATH}backup.db"
+head_info() {
+  echo ''
+	echo ''
+	echo 'Скрипт автоматического резервного копирования сайтов'
+	create_db
+	echo 'Выбирете действие:'
+	echo '1. Показать список сайтов для резервного копирования'
+	echo '2. Добавить сайт в мписок резервного копирования'
+	echo '3. Удалить сайт из списка резервного копирования'
+	echo '4. Выход'
+	echo ''
+	read -p 'Действие:' action
+	if [ "${action}" = "1" ]; then
+		list_site
+		head_info
+	elif [ "${action}" = "2" ]; then
+                getname
+		read -p 'Исключить ядро битрикс из дампа? (y/N)' has_kernel
+                haskernel='0'
+                if [[ $has_kernel =~ ^[Yy]$ ]] ; then
+                        haskernel='1';
+                else
+                        haskernel='0';
+                fi
+		getpath
+		# Insert vlues
+		sqlite3 ${DB} "insert into backup (name, path, has_kernel, date) values ('${name}', '${spath}', '${haskernel}', '0000-00-00 00:00:00' );"
+		list_site
+		head_info	
+	elif [ "${action}" = "3" ] ; then
+		list_site
+		read -p 'Введите номер сайта для удаления: ' num
+		sqlite3 ${DB} "delete from backup where id=${num};"
+		echo $num
+		list_site
+		head_info
+	elif [ "${action}" = "4" ] ; then
+		exit
+	else
+        	head_info
+	fi
+}
+getname() {
+                read -p 'Введите имя сайта:' name
+                if [ -z "$name" ] ; then
+                        echo 'Ошибка: имя сайта не может быть пустым'
+                  	getname
+                fi
+}
+getpath() {
+                read -p 'Путь к папке сайта: ' spath
+                if [ -z "$spath" ] || [ ! -d $spath ] || [ ! -w $spath ] ; then
+                        echo "Ошибка: путь к сайту неверный"
+                        getpath
+                fi
+}
+create_db() {
+	if [ -w ${BPATH} ]; then
+		if [ ! -f "${DB}" ] ; then
+			sqlite3 ${DB} "drop table if exists backup;"
+			sqlite3 ${DB} "create table backup (
+                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                        name text,
+                                        path text,
+                                        has_kernel INTEGER,
+                                        date TIMESTAMP DEFAULT (datetime(CURRENT_TIMESTAMP,'localtime'))
+				);"
+			printf "\t База сайтов успешно создана\n"
+		fi
+	else
+		echo "Ошибка: нет прав на запись в каталог ${BPATH}"
+	fi
+}
+function list_site() {
+	echo 'Список сайтов:'
+	printf "%4s|%20s|%10s|%10s|%20s\n" "ID" "Last backup" "Has_Kernel" "Name" "Path"
+        for i in {1..70};do echo -n -;done
+	sqlite3 ${DB} "select id, date, has_kernel, name, path from backup;" | while read line; do
+		OIFS=$IFS
+		IFS='|'
+		arr=($line)
+		printf "\n%4s|%20s|%10s|%10s|%20s" ${arr[0]} ${arr[1]} ${arr[2]} ${arr[3]} ${arr[4]}
+		IFS=$OIFS
+        done;
+	echo ''
+}
+head_info
